@@ -40,9 +40,13 @@ openchoreoApi:
           - path: /
 ```
 
-## Authentication
+## Authentication and Authorization
 
-By default, OpenChoreo configures Thunder as the identity provider for Backstage with a pre-configured OAuth client for testing purposes. If you want to integrate an external identity provider instead, create an OAuth 2.0 client with the following requirements:
+By default, OpenChoreo configures Thunder as the identity provider for Backstage with a pre-configured OAuth client for testing purposes. If you want to integrate an external identity provider instead, follow the steps below to configure both authentication and authorization for the new client.
+
+### Authentication
+
+Create an OAuth 2.0 client with the following requirements:
 
 **OAuth Client Requirements:**
 
@@ -69,17 +73,38 @@ kubectl create secret generic backstage-secrets \
   --dry-run=client -o yaml | kubectl apply -f -
 ```
 
-<CodeBlock language="bash">
-{`helm upgrade --install openchoreo-control-plane ${versions.helmSource}/openchoreo-control-plane \\
-  --version ${versions.helmChart} \\
-  --namespace openchoreo-control-plane \\
-  --reuse-values \\
-  --set backstage.secretName="backstage-secrets" \\
-  --set backstage.auth.clientId="your-client-id" \\
-  --set backstage.auth.redirectUrls\\[0\\]="<protocol>://<backstage-domain>/api/auth/openchoreo-auth/handler/frame"`}
-</CodeBlock>
+```yaml
+backstage:
+  secretName: "backstage-secrets"
+  auth:
+    clientId: "your-client-id"
+    redirectUrls:
+      - "<protocol>://<backstage-domain>/api/auth/openchoreo-auth/handler/frame"
+```
 
 See [Identity Provider Configuration](./identity-configuration.mdx) for detailed setup instructions.
+
+### Authorization
+
+With authorization enabled by default, Backstage uses the `client_credentials` grant to authenticate with the OpenChoreo API as a service account. The API matches the `sub` claim in the issued JWT to identify the caller, so the new client must be granted the `backstage-catalog-reader` role via a bootstrap authorization mapping.
+
+Add the following to your values override file, replacing `your-client-id` with the same client ID used in the authentication configuration above:
+
+```yaml
+openchoreoApi:
+  config:
+    security:
+      authorization:
+        bootstrap:
+          mappings:
+            - name: backstage-catalog-reader-binding
+              roleRef:
+                name: backstage-catalog-reader
+              entitlement:
+                claim: sub
+                value: "your-client-id"
+              effect: allow
+```
 
 ## Feature Flags
 

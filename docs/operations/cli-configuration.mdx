@@ -46,21 +46,17 @@ The CLI uses the OAuth 2.0 Authorization Code flow with PKCE extension. This is 
 
 Once you have created the OAuth client in your identity provider, update the OpenChoreo control plane configuration with the client ID:
 
-<CodeBlock language="bash">
-{`helm upgrade --install openchoreo-control-plane ${versions.helmSource}/openchoreo-control-plane \\
-  --version ${versions.helmChart} \\
-  --namespace openchoreo-control-plane \\
-  --reuse-values \\
-  --set security.oidc.externalClients\\[0\\].name="cli" \\
-  --set security.oidc.externalClients\\[0\\].client_id="your-cli-client-id" \\
-  --set security.oidc.externalClients\\[0\\].scopes="{openid,profile,email}"`}
-</CodeBlock>
-
-**Configuration Parameters:**
-
-- `security.oidc.externalClients[0].name`: Client name (use "cli")
-- `security.oidc.externalClients[0].client_id`: OAuth client ID from your identity provider
-- `security.oidc.externalClients[0].scopes`: OAuth scopes required for authentication (openid, profile, email)
+```yaml
+security:
+  oidc:
+    externalClients:
+      - name: cli
+        client_id: "your-cli-client-id"
+        scopes:
+          - openid
+          - profile
+          - email
+```
 
 After updating the configuration, you can use the CLI to login. The CLI will automatically open a browser window for authentication:
 

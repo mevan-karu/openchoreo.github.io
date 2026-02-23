@@ -60,26 +60,48 @@ Configure `rcaAgentURL` in the `ObservabilityPlane` resource in the control plan
 {`kubectl patch observabilityplane default -n default --type=merge -p '{"spec":{"rcaAgentURL":"http://ai-rca-agent.openchoreo-observability-plane.svc.cluster.local:8080"}}'`}
 </CodeBlock>
 
-## Using an External Identity Provider
+## Authentication and Authorization
 
-By default, OpenChoreo configures Thunder as the identity provider for the RCA Agent with a pre-configured OAuth client for testing purposes. If you are using an external identity provider, create an OAuth 2.0 client that supports the `client_credentials` grant type for service-to-service authentication.
+By default, OpenChoreo configures Thunder as the identity provider for the RCA Agent with a pre-configured OAuth client for testing purposes. If you are using an external identity provider, follow the steps below to configure both authentication and authorization for the new client.
 
-Once you have created the OAuth client, enable the RCA Agent with the OAuth credentials:
+### Authentication
 
-<CodeBlock language="bash">
-{`helm upgrade --install openchoreo-observability-plane ${versions.helmSource}/openchoreo-observability-plane \\
-  --version ${versions.helmChart} \\
-  --namespace openchoreo-observability-plane \\
-  --reuse-values \\
-  --set rca.enabled=true \\
-  --set security.oidc.tokenUrl=<your-idp-token-url> \\
-  --set rca.oauth.clientId=<your-client-id> \\
-  --set rca.oauth.clientSecret=<your-client-secret> \\
-  --set rca.llm.modelName=<your-model-name> \\
-  --set rca.llm.apiKey=<your-api-key>`}
-</CodeBlock>
+Create an OAuth 2.0 client that supports the `client_credentials` grant type for service-to-service authentication, and configure the Observability Plane with the client credentials:
+
+```yaml
+security:
+  oidc:
+    tokenUrl: "<your-idp-token-url>"
+
+rca:
+  oauth:
+    clientId: "<your-client-id>"
+    clientSecret: "<your-client-secret>"
+```
 
 See [Identity Provider Configuration](./identity-configuration.mdx) for detailed setup instructions.
+
+### Authorization
+
+With authorization enabled by default, the RCA Agent uses the `client_credentials` grant to authenticate with the OpenChoreo API as a service account. The API matches the `sub` claim in the issued JWT to identify the caller, so the new client must be granted the `rca-agent` role via a bootstrap authorization mapping.
+
+Add the following to your Control Plane values override, replacing `<your-client-id>` with the same client ID used in the authentication configuration above:
+
+```yaml
+openchoreoApi:
+  config:
+    security:
+      authorization:
+        bootstrap:
+          mappings:
+            - name: rca-agent-binding
+              roleRef:
+                name: rca-agent
+              entitlement:
+                claim: sub
+                value: "<your-client-id>"
+              effect: allow
+```
 
 ## Verifying the Installation
 
